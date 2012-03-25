@@ -13,8 +13,14 @@ class NodesTableModel(QtCore.QAbstractTableModel):
     def __init__(self, parent = None):
         QtCore.QAbstractTableModel.__init__(self, parent = None)
 
-        self._listNodes = []
-        self._headers = ["Name", "Class", "Width", "Height", "Cropped", "Label"]
+        self._listNodes = None
+        self._headers = None
+
+    def setListNodes(self, listInput):
+        self._listNodes = listInput
+
+    def setHeaders(self, listInput):
+        self._headers = listInput
 
     def headerData(self, section, orientation, role):
         if role == QtCore.Qt.DisplayRole:
@@ -65,8 +71,10 @@ if __name__ == "__main__":
     app = QtGui.QApplication(sys.argv)
 
     # nodeListModel
+    headers = ["Name", "Class", "Width", "Height", "Cropped", "Label"]
     model = NodesTableModel()
-    model._listNodes = pseudoList
+    model.setHeaders(headers)
+    model.setListNodes(pseudoList)
 
     # testing code
     table = QtGui.QTableView()
