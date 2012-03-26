@@ -11,7 +11,7 @@ from PySide import QtCore, QtGui
 
 class NodesTableModel(QtCore.QAbstractTableModel):
     def __init__(self, parent = None):
-        QtCore.QAbstractTableModel.__init__(self, parent = None)
+        QtCore.QAbstractTableModel.__init__(self, parent)
 
         self._listNodes = None
         self._headers = None
@@ -100,6 +100,10 @@ class NodesTableModel(QtCore.QAbstractTableModel):
             pass
 
         self.layoutChanged.emit()
+
+class NodesTableView(QtGui.QTableView):
+    def __init__(self, parent = None):
+        QtGui.QTableView.__init__(self, parent)
 
 if __name__ == "__main__":
     import random
