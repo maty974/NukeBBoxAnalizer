@@ -6,8 +6,8 @@ Created on Mar 25, 2012
 @summary: 
 '''
 
+import operator
 from PySide import QtCore, QtGui
-import sys
 
 class NodesTableModel(QtCore.QAbstractTableModel):
     def __init__(self, parent = None):
@@ -36,22 +36,42 @@ class NodesTableModel(QtCore.QAbstractTableModel):
         return len(self._listNodes)
 
     def data(self, index, role):
-        if role == QtCore.Qt.DisplayRole:
-            row = index.row()
-            column = index.column()
+        row = index.row()
+        column = index.column()
 
+        if role == QtCore.Qt.CheckStateRole and column == 4:
+            if self._listNodes[row][column]:
+                return QtCore.Qt.Checked
+            else:
+                return QtCore.Qt.Unchecked
+
+        if role == QtCore.Qt.DisplayRole:
             try:
-                nodeName = self._listNodes[row][column]
-                return nodeName
+                value = self._listNodes[row][column]
+                return value
             except:
                 pass
 
+    def sort(self, column, order):
+        self.layoutAboutToBeChanged.emit()
+
+        if order == QtCore.Qt.DescendingOrder:
+            orderState = True
+        else:
+            orderState = False
+
+        self._listNodes = sorted(self._listNodes, key = operator.itemgetter(column), reverse = orderState)
+
+        self.layoutChanged.emit()
 
 if __name__ == "__main__":
+    import random
+    import sys
+
     class FakeBBox():
         def __init__(self):
-            self.w = 100
-            self.h = 200
+            self.w = int(random.randrange(0, 2048))
+            self.h = int(random.randrange(0, 2048))
 
     class FakeNode():
         def __init__(self):
@@ -66,9 +86,10 @@ if __name__ == "__main__":
     pseudoList = []
     for i in range(0, 6):
         node = FakeNode()
-        pseudoList.append([node.name() + ":%s" % i, node.Class(), node.bbox().w, node.bbox().h, False])
+        pseudoList.append([node.name() + ":%s" % i, node.Class(), node.bbox().w, node.bbox().h, True])
 
     app = QtGui.QApplication(sys.argv)
+    app.setStyle("plastique")
 
     # nodeListModel
     headers = ["Name", "Class", "Width", "Height", "Cropped", "Label"]
@@ -79,6 +100,7 @@ if __name__ == "__main__":
     # testing code
     table = QtGui.QTableView()
     table.setSelectionBehavior(QtGui.QTableView.SelectRows)
+    table.setSortingEnabled(True)
     table.show()
     table.setModel(model)
 
