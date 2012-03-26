@@ -15,6 +15,24 @@ class NodesTableModel(QtCore.QAbstractTableModel):
 
         self._listNodes = None
         self._headers = None
+        self._maxBBoxWidth = None
+        self._maxBBoxHeight = None
+
+    @property
+    def maxBBoxWidth(self):
+        return self._maxBBoxWidth
+
+    @maxBBoxWidth.setter
+    def maxBBoxWidth(self, value):
+        self._maxBBoxWidth = value
+
+    @property
+    def maxBBoxHeight(self):
+        return self._maxBBoxHeight
+
+    @maxBBoxHeight.setter
+    def maxBBoxHeight(self, value):
+        self._maxBBoxHeight = value
 
     def setListNodes(self, listInput):
         self._listNodes = listInput
@@ -38,21 +56,35 @@ class NodesTableModel(QtCore.QAbstractTableModel):
     def data(self, index, role):
         row = index.row()
         column = index.column()
+        headerName = self._headers[column]
 
-        if role == QtCore.Qt.CheckStateRole and column == 4:
-            if self._listNodes[row][column]:
+        if column < len(self._listNodes[row]):
+            value = self._listNodes[row][column]
+        else:
+            value = ""
+
+        if role == QtCore.Qt.TextAlignmentRole:
+            return QtCore.Qt.AlignHCenter
+
+        if role == QtCore.Qt.CheckStateRole and headerName == "Cropped":
+            if value:
                 return QtCore.Qt.Checked
             else:
                 return QtCore.Qt.Unchecked
 
         if role == QtCore.Qt.DisplayRole:
-            try:
-                value = self._listNodes[row][column]
-                return value
-            except:
-                pass
+            if headerName == "Cropped":
+                value = ""
+
+            return value
+
+        if role == QtCore.Qt.BackgroundRole:
+            if headerName == "Width" and value > self.maxBBoxWidth or \
+            headerName == "Height" and value > self.maxBBoxHeight:
+                return QtGui.QBrush(QtGui.QColor("red"))
 
     def sort(self, column, order):
+        # TODO: maybe there is another way to do sorting here
         self.layoutAboutToBeChanged.emit()
 
         if order == QtCore.Qt.DescendingOrder:
@@ -60,7 +92,12 @@ class NodesTableModel(QtCore.QAbstractTableModel):
         else:
             orderState = False
 
-        self._listNodes = sorted(self._listNodes, key = operator.itemgetter(column), reverse = orderState)
+        # this exception is here because of the column Label cannot be sorted if
+        # not all cell column contains value
+        try:
+            self._listNodes = sorted(self._listNodes, key = operator.itemgetter(column), reverse = orderState)
+        except:
+            pass
 
         self.layoutChanged.emit()
 
@@ -70,7 +107,7 @@ if __name__ == "__main__":
 
     class FakeBBox():
         def __init__(self):
-            self.w = int(random.randrange(0, 2048))
+            self.w = int(random.randrange(0, 2160))
             self.h = int(random.randrange(0, 2048))
 
     class FakeNode():
@@ -96,12 +133,16 @@ if __name__ == "__main__":
     model = NodesTableModel()
     model.setHeaders(headers)
     model.setListNodes(pseudoList)
+    model.maxBBoxWidth = 2048
+    model.maxBBoxHeight = 1152
 
     # testing code
     table = QtGui.QTableView()
-    table.setSelectionBehavior(QtGui.QTableView.SelectRows)
-    table.setSortingEnabled(True)
-    table.show()
     table.setModel(model)
+    table.setSelectionBehavior(QtGui.QTableView.SelectRows)
+    table.setAlternatingRowColors(True)
+    table.setSortingEnabled(True)
+    table.sortByColumn(0, QtCore.Qt.AscendingOrder)
+    table.show()
 
     sys.exit(app.exec_())
