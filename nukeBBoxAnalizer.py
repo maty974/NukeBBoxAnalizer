@@ -124,12 +124,31 @@ class NodesTableView(QtGui.QTableView):
         self.setModel(self.model)
         self.show()
 
-class NodesList(list):
+class NodesList():
     _ignoredNodeClass = ["BackdropNode", "Viewer", "Axis2", "Camera", "FillMat",
                          "ReadGeo2", "Scene", "Sphere", "TransformGeo", "Axis"]
 
-    def __init__(self):
-        pass
+    def __init__(self, data = []):
+        self._nodeList = []
+        self._row = []
+
+    def addNode(self, item):
+        if item:
+            if item not in self._nodeList and \
+            item.Class() not in self._ignoredNodeClass:
+                self._nodeList.append(item)
+
+    def itemRowList(self, item):
+        itemRow = [item.name(), item.Class(), item.bbox().w(), item.bbox().h(), False]
+        return itemRow
+
+    def getRowList(self):
+        for item in self._nodeList:
+            itemRow = self.itemRowList(item)
+            if itemRow not in self._row:
+                self._row.append(itemRow)
+
+        return self._row
 
 if __name__ == "__main__":
     import random
@@ -152,16 +171,16 @@ if __name__ == "__main__":
         def Class(self):
             return "className"
 
-    pseudoList = []
+    pseudoList = NodesList()
     for i in range(0, 6):
         node = FakeNode()
-        pseudoList.append([node.name() + ":%s" % i, node.Class(), node.bbox().w(), node.bbox().h(), True])
+        pseudoList.addNode(node)
 
     app = QtGui.QApplication(sys.argv)
     app.setStyle("plastique")
 
     # tableView
     table = NodesTableView()
-    table.model.setListNodes(pseudoList)
+    table.model.setListNodes(pseudoList.getRowList())
 
     sys.exit(app.exec_())
