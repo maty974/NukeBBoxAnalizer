@@ -15,8 +15,8 @@ class NodesTableModel(QtCore.QAbstractTableModel):
 
         self._listNodes = None
         self._headers = None
-        self._maxBBoxWidth = None
-        self._maxBBoxHeight = None
+        self._maxBBoxWidth = 2048
+        self._maxBBoxHeight = 1152
 
     @property
     def maxBBoxWidth(self):
@@ -25,6 +25,7 @@ class NodesTableModel(QtCore.QAbstractTableModel):
     @maxBBoxWidth.setter
     def maxBBoxWidth(self, value):
         self._maxBBoxWidth = value
+        self.layoutChanged.emit()
 
     @property
     def maxBBoxHeight(self):
@@ -33,9 +34,11 @@ class NodesTableModel(QtCore.QAbstractTableModel):
     @maxBBoxHeight.setter
     def maxBBoxHeight(self, value):
         self._maxBBoxHeight = value
+        self.layoutChanged.emit()
 
     def setListNodes(self, listInput):
         self._listNodes = listInput
+        self.layoutChanged.emit()
 
     def setHeaders(self, listInput):
         self._headers = listInput
@@ -51,7 +54,10 @@ class NodesTableModel(QtCore.QAbstractTableModel):
         return len(self._headers)
 
     def rowCount(self, parent):
-        return len(self._listNodes)
+        try:
+            return len(self._listNodes)
+        except:
+            return 0
 
     def data(self, index, role):
         row = index.row()
@@ -81,7 +87,7 @@ class NodesTableModel(QtCore.QAbstractTableModel):
         if role == QtCore.Qt.BackgroundRole:
             if headerName == "Width" and value > self.maxBBoxWidth or \
             headerName == "Height" and value > self.maxBBoxHeight:
-                return QtGui.QBrush(QtGui.QColor("red"))
+                return QtGui.QBrush(QtGui.QColor("#8F2B2B"))
 
     def sort(self, column, order):
         # TODO: maybe there is another way to do sorting here
@@ -102,17 +108,39 @@ class NodesTableModel(QtCore.QAbstractTableModel):
         self.layoutChanged.emit()
 
 class NodesTableView(QtGui.QTableView):
+    _headers = ["Name", "Class", "Width", "Height", "Cropped", "Label"]
+
     def __init__(self, parent = None):
         QtGui.QTableView.__init__(self, parent)
+
+        self.setSelectionBehavior(QtGui.QTableView.SelectRows)
+        self.setAlternatingRowColors(True)
+        self.setSortingEnabled(True)
+        self.sortByColumn(0, QtCore.Qt.AscendingOrder)
+
+        self.model = NodesTableModel()
+        self.model.setHeaders(self._headers)
+
+        self.setModel(self.model)
+        self.show()
+
+class NodesList(list):
+    _ignoredNodeClass = ["BackdropNode", "Viewer", "Axis2", "Camera", "FillMat",
+                         "ReadGeo2", "Scene", "Sphere", "TransformGeo", "Axis"]
+
+    def __init__(self):
+        pass
 
 if __name__ == "__main__":
     import random
     import sys
 
     class FakeBBox():
-        def __init__(self):
-            self.w = int(random.randrange(0, 2160))
-            self.h = int(random.randrange(0, 2048))
+        def w(self):
+            return int(random.randrange(0, 2160))
+
+        def h(self):
+            return int(random.randrange(0, 2048))
 
     class FakeNode():
         def __init__(self):
@@ -127,26 +155,13 @@ if __name__ == "__main__":
     pseudoList = []
     for i in range(0, 6):
         node = FakeNode()
-        pseudoList.append([node.name() + ":%s" % i, node.Class(), node.bbox().w, node.bbox().h, True])
+        pseudoList.append([node.name() + ":%s" % i, node.Class(), node.bbox().w(), node.bbox().h(), True])
 
     app = QtGui.QApplication(sys.argv)
     app.setStyle("plastique")
 
-    # nodeListModel
-    headers = ["Name", "Class", "Width", "Height", "Cropped", "Label"]
-    model = NodesTableModel()
-    model.setHeaders(headers)
-    model.setListNodes(pseudoList)
-    model.maxBBoxWidth = 2048
-    model.maxBBoxHeight = 1152
-
-    # testing code
-    table = QtGui.QTableView()
-    table.setModel(model)
-    table.setSelectionBehavior(QtGui.QTableView.SelectRows)
-    table.setAlternatingRowColors(True)
-    table.setSortingEnabled(True)
-    table.sortByColumn(0, QtCore.Qt.AscendingOrder)
-    table.show()
+    # tableView
+    table = NodesTableView()
+    table.model.setListNodes(pseudoList)
 
     sys.exit(app.exec_())
