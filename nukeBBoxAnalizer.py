@@ -1,7 +1,7 @@
 '''
 Created on Mar 25, 2012
 
-@author: maty974
+@author: Matthieu Cadet
 @contact: matthieu.cadet@gmail.com
 @summary: 
 '''
