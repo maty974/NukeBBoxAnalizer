@@ -72,16 +72,7 @@ class NodesTableModel(QtCore.QAbstractTableModel):
         if role == QtCore.Qt.TextAlignmentRole:
             return QtCore.Qt.AlignHCenter
 
-        if role == QtCore.Qt.CheckStateRole and headerName == "Cropped":
-            if value:
-                return QtCore.Qt.Checked
-            else:
-                return QtCore.Qt.Unchecked
-
         if role == QtCore.Qt.DisplayRole:
-            if headerName == "Cropped":
-                value = ""
-
             return value
 
         if role == QtCore.Qt.BackgroundRole:
@@ -98,17 +89,13 @@ class NodesTableModel(QtCore.QAbstractTableModel):
         else:
             orderState = False
 
-        # this exception is here because of the column Label cannot be sorted if
-        # not all cell column contains value
-        try:
-            self._listNodes = sorted(self._listNodes, key = operator.itemgetter(column), reverse = orderState)
-        except:
-            pass
+        self._listNodes = sorted(self._listNodes, key = operator.itemgetter(column), reverse = orderState)
 
         self.layoutChanged.emit()
 
 class NodesTableView(QtGui.QTableView):
-    _headers = ["Name", "Class", "Width", "Height", "Cropped", "Label"]
+    # TODO: maybe also add the node.width/height() image size
+    _headers = ["Name", "Class", "Width (bbox)", "Height (bbox)", "Disabled", "Label"]
 
     def __init__(self, parent = None):
         QtGui.QTableView.__init__(self, parent)
@@ -139,7 +126,13 @@ class NodesList():
                 self._nodeList.append(item)
 
     def itemRowList(self, item):
-        itemRow = [item.name(), item.Class(), item.bbox().w(), item.bbox().h(), False]
+        itemRow = [item.name(),
+                   item.Class(),
+                   item.bbox().w(),
+                   item.bbox().h(),
+                   item.knob("disable").value(),
+                   item.knob("label").value() ]
+
         return itemRow
 
     def getRowList(self):
@@ -154,6 +147,17 @@ if __name__ == "__main__":
     import random
     import sys
 
+    class FakeKnob():
+        def __init__(self, name):
+            self.name = name
+
+        def value(self):
+            if self.name == "disable":
+                return random.choice([True, False])
+
+            if self.name == "label":
+                return random.choice(["", "user label", "other label"])
+
     class FakeBBox():
         def w(self):
             return int(random.randrange(0, 2160))
@@ -164,12 +168,17 @@ if __name__ == "__main__":
     class FakeNode():
         def __init__(self):
             self.bbox = FakeBBox
+            self.id = random.randint(0, 50)
 
         def name(self):
-            return "nodeName"
+            return "nodeName_%i" % self.id
 
         def Class(self):
-            return "className"
+            return random.choice(["Grade", "ColorCorrect", "Merge", "Blur", "DirBlurWrapper"])
+
+        def knob(self, name):
+            knob = FakeKnob(name)
+            return knob
 
     pseudoList = NodesList()
     for i in range(0, 6):
