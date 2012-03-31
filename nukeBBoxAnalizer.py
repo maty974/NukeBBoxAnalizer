@@ -108,7 +108,11 @@ class NodesTableView(QtGui.QTableView):
         self.model = NodesTableModel()
         self.model.setHeaders(self._headers)
 
-        self.setModel(self.model)
+        self.proxyModel = QtGui.QSortFilterProxyModel()
+        self.proxyModel.setDynamicSortFilter(True)
+        self.proxyModel.setSourceModel(self.model)
+
+        self.setModel(self.proxyModel)
         self.show()
 
 class NodesList():
@@ -191,5 +195,10 @@ if __name__ == "__main__":
     # tableView
     table = NodesTableView()
     table.model.setListNodes(pseudoList.getRowList())
+
+    # filter test
+    #table.proxyModel.setFilterKeyColumn(1)
+    #table.proxyModel.setFilterCaseSensitivity(QtCore.Qt.CaseInsensitive)
+    #table.proxyModel.setFilterWildcard("bl*")
 
     sys.exit(app.exec_())
