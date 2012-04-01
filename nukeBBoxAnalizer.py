@@ -15,8 +15,8 @@ class NodesTableModel(QtCore.QAbstractTableModel):
 
         self._listNodes = None
         self._headers = None
-        self._maxBBoxWidth = 2048
-        self._maxBBoxHeight = 1152
+        self._maxBBoxWidth = 1920
+        self._maxBBoxHeight = 1080
 
     @property
     def maxBBoxWidth(self):
@@ -36,8 +36,15 @@ class NodesTableModel(QtCore.QAbstractTableModel):
         self._maxBBoxHeight = value
         self.layoutChanged.emit()
 
-    def setListNodes(self, listInput):
+    @property
+    def listNodes(self):
+        return self._listNodes
+
+    @listNodes.setter
+    def listNodes(self, listInput):
         self._listNodes = listInput
+        self._listNodes.modelParent = self
+
         self.layoutChanged.emit()
 
     def setHeaders(self, listInput):
@@ -55,7 +62,7 @@ class NodesTableModel(QtCore.QAbstractTableModel):
 
     def rowCount(self, parent):
         try:
-            return len(self._listNodes)
+            return len(self.listNodes.list)
         except:
             return 0
 
@@ -64,8 +71,8 @@ class NodesTableModel(QtCore.QAbstractTableModel):
         column = index.column()
         headerName = self._headers[column]
 
-        if column < len(self._listNodes[row]):
-            value = self._listNodes[row][column]
+        if column < len(self._listNodes.row(row)):
+            value = self._listNodes.row(row)[column]
         else:
             value = ""
 
@@ -76,8 +83,8 @@ class NodesTableModel(QtCore.QAbstractTableModel):
             return value
 
         if role == QtCore.Qt.BackgroundRole:
-            if headerName == "Width" and value > self.maxBBoxWidth or \
-            headerName == "Height" and value > self.maxBBoxHeight:
+            if headerName == "Width (bbox)" and value > self.maxBBoxWidth or \
+            headerName == "Height (bbox)" and value > self.maxBBoxHeight:
                 return QtGui.QBrush(QtGui.QColor("#8F2B2B"))
 
     def sort(self, column, order):
@@ -116,18 +123,36 @@ class NodesTableView(QtGui.QTableView):
         self.show()
 
 class NodesList():
+    # TODO: self.addNode must be re-think... maybe use a dict
+    # TODO: add a remove node
+    # TODO: add a nuke.callback to update list on Node in DAG changed,deleted,added,...
+
     _ignoredNodeClass = ["BackdropNode", "Viewer", "Axis2", "Camera", "FillMat",
                          "ReadGeo2", "Scene", "Sphere", "TransformGeo", "Axis"]
 
     def __init__(self, data = []):
+        self.modelParent = None
         self._nodeList = []
-        self._row = []
+        self._rowList = []
+
+    @property
+    def rowList(self):
+        return self._rowList
+
+    @property
+    def list(self):
+        return self._nodeList
 
     def addNode(self, item):
         if item:
             if item not in self._nodeList and \
             item.Class() not in self._ignoredNodeClass:
                 self._nodeList.append(item)
+
+        self.notifyChanged()
+
+    def row(self, index):
+        return self.itemRowList(self._nodeList[index])
 
     def itemRowList(self, item):
         itemRow = [item.name(),
@@ -139,50 +164,74 @@ class NodesList():
 
         return itemRow
 
-    def getRowList(self):
+    def setRowList(self):
         for item in self._nodeList:
             itemRow = self.itemRowList(item)
-            if itemRow not in self._row:
-                self._row.append(itemRow)
+            if itemRow not in self._rowList:
+                self._rowList.append(itemRow)
 
-        return self._row
+        return self._rowList
+
+    def removeNode(self, name):
+        for node in self._nodeList:
+            if node.name() == name:
+                self._nodeList.remove(node)
+                self.notifyChanged()
+                break
+
+    def notifyChanged(self):
+        self.setRowList()
+
+        if self.modelParent != None:
+            self.modelParent.layoutChanged.emit()
 
 if __name__ == "__main__":
     import random
     import sys
 
     class FakeKnob():
-        def __init__(self, name):
-            self.name = name
+        def __init__(self):
+            self._randomDisable = random.choice([True, False])
+            self._randomLabel = random.choice(["", "user label", "other label"])
 
         def value(self):
             if self.name == "disable":
-                return random.choice([True, False])
+                return self._randomDisable
 
             if self.name == "label":
-                return random.choice(["", "user label", "other label"])
+                return self._randomLabel
 
     class FakeBBox():
+        def __init__(self):
+            self._randomWidth = int(random.randrange(0, 2160))
+            self._randomHeight = int(random.randrange(0, 2048))
+
         def w(self):
-            return int(random.randrange(0, 2160))
+            return self._randomWidth
 
         def h(self):
-            return int(random.randrange(0, 2048))
+            return self._randomHeight
 
     class FakeNode():
         def __init__(self):
-            self.bbox = FakeBBox
+            self._randomClass = random.choice(["Grade", "ColorCorrect", "Merge", "Blur", "DirBlurWrapper"])
             self.id = random.randint(0, 50)
+            self._name = "nodeName_%s" % self.id
+            self.bboxFake = FakeBBox()
+            self.knobFake = FakeKnob()
+
+        def bbox(self):
+            return self.bboxFake
 
         def name(self):
-            return "nodeName_%i" % self.id
+            return self._name
 
         def Class(self):
-            return random.choice(["Grade", "ColorCorrect", "Merge", "Blur", "DirBlurWrapper"])
+            return self._randomClass
 
         def knob(self, name):
-            knob = FakeKnob(name)
-            return knob
+            self.knobFake.name = name
+            return self.knobFake
 
     pseudoList = NodesList()
     for i in range(0, 6):
@@ -194,11 +243,19 @@ if __name__ == "__main__":
 
     # tableView
     table = NodesTableView()
-    table.model.setListNodes(pseudoList.getRowList())
+    table.model.listNodes = pseudoList
 
     # filter test
     #table.proxyModel.setFilterKeyColumn(1)
     #table.proxyModel.setFilterCaseSensitivity(QtCore.Qt.CaseInsensitive)
     #table.proxyModel.setFilterWildcard("bl*")
+
+    # test add other node after
+    otherNode = FakeNode()
+    otherNode._name = "otherNode"
+    pseudoList.addNode(otherNode)
+
+    # test remove node from list
+    #pseudoList.removeNode("otherNode")
 
     sys.exit(app.exec_())
