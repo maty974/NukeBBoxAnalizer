@@ -3,11 +3,96 @@ Created on Mar 25, 2012
 
 @author: Matthieu Cadet
 @contact: matthieu.cadet@gmail.com
-@summary: 
 '''
 
 import operator
 from PySide import QtCore, QtGui
+
+__author__ = "Matthieu Cadet"
+__maintainer__ = "Matthieu Cadet"
+__email__ = "matthieu.cadet@gmail.com"
+__copyright__ = "Copyright 2012"
+__license__ = "?"
+__version__ = "1.0"
+
+class FilterWidget(QtGui.QHBoxLayout):
+    def __init__(self, parent = None):
+        QtGui.QHBoxLayout.__init__(self, parent)
+
+        self.entry = QtGui.QLineEdit()
+        self.type = QtGui.QComboBox()
+        self.type.addItems(NodesTableView._headers)
+
+        self.addWidget(self.type)
+        self.addWidget(self.entry)
+
+class MainWindow(QtGui.QDialog):
+    def __init__(self, parent = None):
+        QtGui.QDialog.__init__(self, parent)
+
+        self.setWindowTitle("Nuke BBox Analizer | %s" % __version__)
+        self.resize(800, 600)
+
+        self.filterGroup = QtGui.QGroupBox("Filter")
+        self.filterWidget = FilterWidget()
+        self.filterGroup.setLayout(self.filterWidget)
+
+        QtCore.QObject.connect(self.filterWidget.entry, QtCore.SIGNAL("textChanged(QString)"), self.setFilter)
+        QtCore.QObject.connect(self.filterWidget.type, QtCore.SIGNAL("currentIndexChanged(QString)"), self.setFilterColumn)
+
+        self.nodeActionsGroup = QtGui.QGroupBox("Node Actions")
+        self.displayOptionsGroup = QtGui.QGroupBox("Display Options")
+        self.refreshButton = QtGui.QPushButton("Refresh")
+        self.vboxLayout = QtGui.QVBoxLayout()
+        self.vboxLayout.setContentsMargins(4, 4, 4, 4)
+        self.hboxStatusBar = QtGui.QHBoxLayout()
+        self.hboxBottomLayout = QtGui.QHBoxLayout()
+        self.hboxTopLayout = QtGui.QHBoxLayout()
+
+        self.tableView = NodesTableView()
+        self.infosCountStatus = self.InfosCountStatus(parent = self)
+
+        self.hboxStatusBar.addWidget(self.infosCountStatus)
+        self.hboxStatusBar.addWidget(self.refreshButton)
+
+        self.vboxLayout.addLayout(self.hboxTopLayout)
+        self.hboxTopLayout.addWidget(self.filterGroup)
+        self.vboxLayout.addWidget(self.tableView)
+        self.vboxLayout.addLayout(self.hboxBottomLayout)
+        self.hboxBottomLayout.addWidget(self.nodeActionsGroup)
+        self.hboxBottomLayout.addWidget(self.displayOptionsGroup)
+        self.vboxLayout.addLayout(self.hboxStatusBar)
+
+        self.setLayout(self.vboxLayout)
+
+    def setFilterColumn(self, name):
+        self.tableView.proxyModel.setFilterKeyColumn(self.tableView._headers.index(name))
+
+    def setFilter(self, pattern):
+        self.tableView.proxyModel.setFilterRegExp(pattern)
+
+    class InfosCountStatus(QtGui.QWidget):
+        def __init__(self, parent):
+            QtGui.QWidget.__init__(self, parent)
+
+            hbox = QtGui.QHBoxLayout()
+            hbox.setContentsMargins(2, 2, 2, 2)
+
+            labelFrameStyle = QtGui.QFrame.StyledPanel | QtGui.QFrame.Sunken
+
+            label1 = QtGui.QLabel("total nodes: 0")
+            label1.setFrameStyle(labelFrameStyle)
+
+            label2 = QtGui.QLabel("oversize bbox: 0")
+            label2.setFrameStyle(labelFrameStyle)
+
+            hbox.addWidget(label1)
+            hbox.addWidget(label2)
+
+            hbox.setSizeConstraint(QtGui.QHBoxLayout.SetFixedSize)
+
+            self.setLayout(hbox)
+
 
 class NodesTableModel(QtCore.QAbstractTableModel):
     def __init__(self, parent = None):
@@ -43,8 +128,6 @@ class NodesTableModel(QtCore.QAbstractTableModel):
     @listNodes.setter
     def listNodes(self, listInput):
         self._listNodes = listInput
-        self._listNodes.modelParent = self
-
         self.layoutChanged.emit()
 
     def setHeaders(self, listInput):
@@ -62,7 +145,7 @@ class NodesTableModel(QtCore.QAbstractTableModel):
 
     def rowCount(self, parent):
         try:
-            return len(self.listNodes.list)
+            return len(self.listNodes)
         except:
             return 0
 
@@ -71,8 +154,8 @@ class NodesTableModel(QtCore.QAbstractTableModel):
         column = index.column()
         headerName = self._headers[column]
 
-        if column < len(self._listNodes.row(row)):
-            value = self._listNodes.row(row)[column]
+        if column < len(self._listNodes[row]):
+            value = self._listNodes[row][column]
         else:
             value = ""
 
@@ -104,6 +187,8 @@ class NodesTableView(QtGui.QTableView):
 
         self.proxyModel = QtGui.QSortFilterProxyModel()
         self.proxyModel.setDynamicSortFilter(True)
+        self.proxyModel.setFilterKeyColumn(0)
+        self.proxyModel.setFilterCaseSensitivity(QtCore.Qt.CaseInsensitive)
         self.proxyModel.setSourceModel(self.model)
 
         self.setModel(self.proxyModel)
@@ -121,30 +206,19 @@ class NodesList():
                          "ReadGeo2", "Scene", "Sphere", "TransformGeo", "Axis"]
 
     def __init__(self, data = []):
-        self.modelParent = None
         self._nodeList = []
-        self._rowList = []
 
     @property
-    def rowList(self):
-        return self._rowList
-
-    @property
-    def list(self):
+    def nodeList(self):
         return self._nodeList
 
     def addNode(self, item):
         if item:
             if item not in self._nodeList and \
             item.Class() not in self._ignoredNodeClass:
-                self._nodeList.append(item)
+                self._nodeList.append(self.itemRow(item))
 
-        self.notifyChanged()
-
-    def row(self, index):
-        return self.itemRowList(self._nodeList[index])
-
-    def itemRowList(self, item):
+    def itemRow(self, item):
         itemRow = [item.name(),
                    item.Class(),
                    item.bbox().w(),
@@ -153,28 +227,6 @@ class NodesList():
                    item.knob("label").value() ]
 
         return itemRow
-
-    def setRowList(self):
-        for item in self._nodeList:
-            itemRow = self.itemRowList(item)
-            if itemRow not in self._rowList:
-                self._rowList.append(itemRow)
-
-        return self._rowList
-
-    def removeNode(self, name):
-        for node in self._nodeList:
-            if node.name() == name:
-                self._nodeList.remove(node)
-                self.notifyChanged()
-                break
-
-    def notifyChanged(self):
-        self.setRowList()
-
-        if self.modelParent != None:
-            self.modelParent.layoutChanged.emit()
-
 
 if __name__ == "__main__":
     import random
@@ -225,17 +277,22 @@ if __name__ == "__main__":
             return self.knobFake
 
     pseudoList = NodesList()
-    for i in range(0, 6):
+    for i in range(0, 60):
         node = FakeNode()
         pseudoList.addNode(node)
 
     app = QtGui.QApplication(sys.argv)
     app.setStyle("plastique")
 
+    # main window
+    ui = MainWindow()
+    ui.tableView.model.listNodes = pseudoList.nodeList
+    ui.show()
+
     # tableView
-    table = NodesTableView()
-    table.model.listNodes = pseudoList
-    table.resize(700, 300)
+    #table = NodesTableView()
+    #table.model.listNodes = pseudoList
+    #table.resize(700, 300)
 
     # filter test
     #table.proxyModel.setFilterKeyColumn(1)
@@ -243,9 +300,9 @@ if __name__ == "__main__":
     #table.proxyModel.setFilterWildcard("bl*")
 
     # test add other node after
-    otherNode = FakeNode()
-    otherNode._name = "otherNode"
-    pseudoList.addNode(otherNode)
+    #otherNode = FakeNode()
+    #otherNode._name = "otherNode"
+    #pseudoList.addNode(otherNode)
 
     # test remove node from list
     #pseudoList.removeNode("otherNode")
