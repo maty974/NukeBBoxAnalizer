@@ -87,18 +87,6 @@ class NodesTableModel(QtCore.QAbstractTableModel):
             headerName == "Height (bbox)" and value > self.maxBBoxHeight:
                 return QtGui.QBrush(QtGui.QColor("#8F2B2B"))
 
-    def sort(self, column, order):
-        # TODO: maybe there is another way to do sorting here
-        self.layoutAboutToBeChanged.emit()
-
-        if order == QtCore.Qt.DescendingOrder:
-            orderState = True
-        else:
-            orderState = False
-
-        self._listNodes = sorted(self._listNodes, key = operator.itemgetter(column), reverse = orderState)
-
-        self.layoutChanged.emit()
 
 class NodesTableView(QtGui.QTableView):
     # TODO: maybe also add the node.width/height() image size
@@ -110,7 +98,6 @@ class NodesTableView(QtGui.QTableView):
         self.setSelectionBehavior(QtGui.QTableView.SelectRows)
         self.setAlternatingRowColors(True)
         self.setSortingEnabled(True)
-        self.sortByColumn(0, QtCore.Qt.AscendingOrder)
 
         self.model = NodesTableModel()
         self.model.setHeaders(self._headers)
@@ -120,7 +107,10 @@ class NodesTableView(QtGui.QTableView):
         self.proxyModel.setSourceModel(self.model)
 
         self.setModel(self.proxyModel)
+        self.sortByColumn(0, QtCore.Qt.AscendingOrder)
+
         self.show()
+
 
 class NodesList():
     # TODO: self.addNode must be re-think... maybe use a dict
@@ -185,6 +175,7 @@ class NodesList():
         if self.modelParent != None:
             self.modelParent.layoutChanged.emit()
 
+
 if __name__ == "__main__":
     import random
     import sys
@@ -244,6 +235,7 @@ if __name__ == "__main__":
     # tableView
     table = NodesTableView()
     table.model.listNodes = pseudoList
+    table.resize(700, 300)
 
     # filter test
     #table.proxyModel.setFilterKeyColumn(1)
