@@ -26,6 +26,28 @@ class FilterWidget(QtGui.QHBoxLayout):
         self.addWidget(self.type)
         self.addWidget(self.entry)
 
+class InfosCountStatus(QtGui.QWidget):
+    def __init__(self, parent = None):
+        QtGui.QWidget.__init__(self, parent)
+
+        hbox = QtGui.QHBoxLayout()
+        hbox.setContentsMargins(2, 2, 2, 2)
+
+        labelFrameStyle = QtGui.QFrame.StyledPanel | QtGui.QFrame.Sunken
+
+        label1 = QtGui.QLabel("total nodes: 0")
+        label1.setFrameStyle(labelFrameStyle)
+
+        label2 = QtGui.QLabel("oversize bbox: 0")
+        label2.setFrameStyle(labelFrameStyle)
+
+        hbox.addWidget(label1)
+        hbox.addWidget(label2)
+
+        hbox.setSizeConstraint(QtGui.QHBoxLayout.SetFixedSize)
+
+        self.setLayout(hbox)
+
 class MainWindow(QtGui.QDialog):
     def __init__(self, parent = None):
         QtGui.QDialog.__init__(self, parent)
@@ -50,7 +72,7 @@ class MainWindow(QtGui.QDialog):
         self.hboxTopLayout = QtGui.QHBoxLayout()
 
         self.tableView = NodesTableView()
-        self.infosCountStatus = self.InfosCountStatus(parent = self)
+        self.infosCountStatus = InfosCountStatus()
 
         self.hboxStatusBar.addWidget(self.infosCountStatus)
         self.hboxStatusBar.addWidget(self.refreshButton)
@@ -71,27 +93,11 @@ class MainWindow(QtGui.QDialog):
     def setFilter(self, pattern):
         self.tableView.proxyModel.setFilterRegExp(pattern)
 
-    class InfosCountStatus(QtGui.QWidget):
-        def __init__(self, parent):
-            QtGui.QWidget.__init__(self, parent)
+    def event(self, event):
+        return QtGui.QWidget.event(self, event)
 
-            hbox = QtGui.QHBoxLayout()
-            hbox.setContentsMargins(2, 2, 2, 2)
-
-            labelFrameStyle = QtGui.QFrame.StyledPanel | QtGui.QFrame.Sunken
-
-            label1 = QtGui.QLabel("total nodes: 0")
-            label1.setFrameStyle(labelFrameStyle)
-
-            label2 = QtGui.QLabel("oversize bbox: 0")
-            label2.setFrameStyle(labelFrameStyle)
-
-            hbox.addWidget(label1)
-            hbox.addWidget(label2)
-
-            hbox.setSizeConstraint(QtGui.QHBoxLayout.SetFixedSize)
-
-            self.setLayout(hbox)
+    def closeEvent(self, event):
+        self.deleteLater()
 
 
 class NodesTableModel(QtCore.QAbstractTableModel):
@@ -194,9 +200,6 @@ class NodesTableView(QtGui.QTableView):
         self.setModel(self.proxyModel)
         self.sortByColumn(0, QtCore.Qt.AscendingOrder)
 
-        self.show()
-
-
 class NodesList():
     # TODO: self.addNode must be re-think... maybe use a dict
     # TODO: add a remove node
@@ -219,12 +222,37 @@ class NodesList():
                 self._nodeList.append(self.itemRow(item))
 
     def itemRow(self, item):
-        itemRow = [item.name(),
-                   item.Class(),
-                   item.bbox().w(),
-                   item.bbox().h(),
-                   item.knob("disable").value(),
-                   item.knob("label").value() ]
+        itemRow = []
+
+        try:
+            itemRow.append(item.name())
+        except:
+            itemRow.append("unknown name")
+
+        try:
+            itemRow.append(item.Class())
+        except:
+            itemRow.append("unknown class")
+
+        try:
+            itemRow.append(item.bbox().w())
+        except:
+            itemRow.append(0)
+
+        try:
+            itemRow.append(item.bbox().h())
+        except:
+            itemRow.append(0)
+
+        try:
+            itemRow.append(item.knob("disable").value())
+        except:
+            itemRow.append("none")
+
+        try:
+            itemRow.append(item.knob("label").value())
+        except:
+            itemRow.append("")
 
         return itemRow
 
