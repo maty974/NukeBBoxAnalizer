@@ -5,6 +5,9 @@ Created on Mar 25, 2012
 @contact: matthieu.cadet@gmail.com
 '''
 
+# FIXME: MainWindow call with parent=None cause nuke crash on exit
+# when the window is still opened
+
 import operator
 from PySide import QtCore, QtGui
 
