@@ -30,23 +30,44 @@ class InfosCountStatus(QtGui.QWidget):
     def __init__(self, parent = None):
         QtGui.QWidget.__init__(self, parent)
 
+        self._totalNodes = 0
+        self._oversizeBBox = 0
+
         hbox = QtGui.QHBoxLayout()
         hbox.setContentsMargins(2, 2, 2, 2)
 
         labelFrameStyle = QtGui.QFrame.StyledPanel | QtGui.QFrame.Sunken
 
-        label1 = QtGui.QLabel("total nodes: 0")
-        label1.setFrameStyle(labelFrameStyle)
+        self.labelTotalNodes = QtGui.QLabel("total nodes: %s" % self._totalNodes)
+        self.labelTotalNodes.setFrameStyle(labelFrameStyle)
 
-        label2 = QtGui.QLabel("oversize bbox: 0")
-        label2.setFrameStyle(labelFrameStyle)
+        self.labelOversizeBBox = QtGui.QLabel("oversize bbox: %s" % self._oversizeBBox)
+        self.labelOversizeBBox.setFrameStyle(labelFrameStyle)
 
-        hbox.addWidget(label1)
-        hbox.addWidget(label2)
+        hbox.addWidget(self.labelTotalNodes)
+        hbox.addWidget(self.labelOversizeBBox)
 
         hbox.setSizeConstraint(QtGui.QHBoxLayout.SetFixedSize)
 
         self.setLayout(hbox)
+
+    @property
+    def totalNodes(self):
+        return self._totalNodes
+    @totalNodes.setter
+    def totalNodes(self, value):
+        self._totalNodes = value
+        self.labelTotalNodes.setText("total nodes: %s" % self.totalNodes)
+
+    @property
+    def oversizeBBox(self):
+        return self._oversizeBBox
+
+    @oversizeBBox.setter
+    def oversizeBBox(self, value):
+        self._oversizeBBox = value
+        self.labelOversizeBBox.setText("oversize bbox: %s" % self.oversizeBBox)
+
 
 class MainWindow(QtGui.QDialog):
     def __init__(self, parent = None):
@@ -58,9 +79,6 @@ class MainWindow(QtGui.QDialog):
         self.filterGroup = QtGui.QGroupBox("Filter")
         self.filterWidget = FilterWidget()
         self.filterGroup.setLayout(self.filterWidget)
-
-        QtCore.QObject.connect(self.filterWidget.entry, QtCore.SIGNAL("textChanged(QString)"), self.setFilter)
-        QtCore.QObject.connect(self.filterWidget.type, QtCore.SIGNAL("currentIndexChanged(QString)"), self.setFilterColumn)
 
         self.nodeActionsGroup = QtGui.QGroupBox("Node Actions")
         self.displayOptionsGroup = QtGui.QGroupBox("Display Options")
@@ -86,6 +104,14 @@ class MainWindow(QtGui.QDialog):
         self.vboxLayout.addLayout(self.hboxStatusBar)
 
         self.setLayout(self.vboxLayout)
+
+        QtCore.QObject.connect(self.filterWidget.entry, QtCore.SIGNAL("textChanged(QString)"), self.setFilter)
+        QtCore.QObject.connect(self.filterWidget.type, QtCore.SIGNAL("currentIndexChanged(QString)"), self.setFilterColumn)
+        QtCore.QObject.connect(self.tableView.proxyModel, QtCore.SIGNAL("layoutChanged()"), self.setInfosCount)
+        QtCore.QObject.connect(self.filterWidget.entry, QtCore.SIGNAL("textChanged(QString)"), self.setInfosCount)
+
+    def setInfosCount(self):
+        self.infosCountStatus.totalNodes = self.tableView.proxyModel.rowCount()
 
     def setFilterColumn(self, name):
         self.tableView.proxyModel.setFilterKeyColumn(self.tableView._headers.index(name))
@@ -159,11 +185,7 @@ class NodesTableModel(QtCore.QAbstractTableModel):
         row = index.row()
         column = index.column()
         headerName = self._headers[column]
-
-        if column < len(self._listNodes[row]):
-            value = self._listNodes[row][column]
-        else:
-            value = ""
+        value = self._listNodes[row][column]
 
         if role == QtCore.Qt.TextAlignmentRole:
             return QtCore.Qt.AlignHCenter
@@ -254,6 +276,9 @@ class NodesList():
         except:
             itemRow.append("")
 
+        itemRow.append("other data")
+        itemRow.append("metadata")
+
         return itemRow
 
 if __name__ == "__main__":
@@ -305,7 +330,7 @@ if __name__ == "__main__":
             return self.knobFake
 
     pseudoList = NodesList()
-    for i in range(0, 60):
+    for i in range(0, 10):
         node = FakeNode()
         pseudoList.addNode(node)
 
