@@ -10,6 +10,10 @@ Created on Mar 25, 2012
 
 import operator
 from PySide import QtCore, QtGui
+try:
+    import nuke
+except:
+    pass
 
 __author__ = "Matthieu Cadet"
 __maintainer__ = "Matthieu Cadet"
@@ -77,6 +81,7 @@ class MainWindow(QtGui.QDialog):
         QtGui.QDialog.__init__(self, parent)
 
         self.setWindowTitle("Nuke BBox Analizer | %s" % __version__)
+        self.setObjectName("NukeBBoxAnalizerWindow")
         self.resize(800, 600)
 
         self.filterGroup = QtGui.QGroupBox("Filter")
@@ -95,6 +100,10 @@ class MainWindow(QtGui.QDialog):
         self.tableView = NodesTableView()
         self.infosCountStatus = InfosCountStatus()
 
+        self.nodeLister = NodesList()
+        self.nodeLister.setFromNukeNodes()
+        self.tableView.model.listNodes = self.nodeLister.nodeList
+
         self.hboxStatusBar.addWidget(self.infosCountStatus)
         self.hboxStatusBar.addWidget(self.refreshButton)
 
@@ -108,10 +117,33 @@ class MainWindow(QtGui.QDialog):
 
         self.setLayout(self.vboxLayout)
 
-        QtCore.QObject.connect(self.filterWidget.entry, QtCore.SIGNAL("textChanged(QString)"), self.setFilter)
-        QtCore.QObject.connect(self.filterWidget.type, QtCore.SIGNAL("currentIndexChanged(QString)"), self.setFilterColumn)
-        QtCore.QObject.connect(self.tableView.proxyModel, QtCore.SIGNAL("layoutChanged()"), self.setInfosCount)
-        QtCore.QObject.connect(self.filterWidget.entry, QtCore.SIGNAL("textChanged(QString)"), self.setInfosCount)
+        # connect some widgets signal
+        self.filterWidget.entry.textChanged.connect(self.setFilter)
+        self.filterWidget.entry.textChanged.connect(self.setInfosCount)
+        self.filterWidget.type.currentIndexChanged.connect(self.setFilterColumn)
+        self.tableView.proxyModel.layoutChanged.connect(self.setInfosCount)
+        self.refreshButton.clicked.connect(self.refreshListOfNodes)
+
+        # emit table model layoutChanged
+        self.tableView.model.layoutChanged.emit()
+
+    def refreshListOfNodes(self):
+        self.nodeLister.setFromNukeNodes()
+        self.tableView.model.listNodes = self.nodeLister.nodeList
+
+    def addNukeCallBacks(self):
+        try:
+            nuke.addOnUserCreate(self.refreshListOfNodes)
+            nuke.addOnDestroy(self.refreshListOfNodes)
+        except:
+            pass
+
+    def removeNukeCallBacks(self):
+        try:
+            nuke.removeOnUserCreate(self.refreshListOfNodes)
+            nuke.removeOnDestroy(self.refreshListOfNodes)
+        except:
+            pass
 
     def setInfosCount(self):
         self.infosCountStatus.totalNodes = self.tableView.proxyModel.rowCount()
@@ -126,6 +158,7 @@ class MainWindow(QtGui.QDialog):
         return QtGui.QWidget.event(self, event)
 
     def closeEvent(self, event):
+        self.removeNukeCallBacks()
         self.deleteLater()
 
 
@@ -233,7 +266,7 @@ class NodesList():
     _ignoredNodeClass = ["BackdropNode", "Viewer", "Axis2", "Camera", "FillMat",
                          "ReadGeo2", "Scene", "Sphere", "TransformGeo", "Axis"]
 
-    def __init__(self, data = []):
+    def __init__(self):
         self._nodeList = []
 
     @property
@@ -245,6 +278,17 @@ class NodesList():
             if item not in self._nodeList and \
             item.Class() not in self._ignoredNodeClass:
                 self._nodeList.append(self.itemRow(item))
+
+    def setFromNukeNodes(self):
+        try:
+            self.clearList()
+            for node in nuke.allNodes():
+                self.addNode(node)
+        except:
+            pass
+
+    def clearList(self):
+        self._nodeList = []
 
     def itemRow(self, item):
         itemRow = []
@@ -279,10 +323,14 @@ class NodesList():
         except:
             itemRow.append("")
 
-        itemRow.append("other data")
-        itemRow.append("metadata")
-
         return itemRow
+
+def startBBoxAnalizer():
+    global uiBBoxAnalizer
+
+    # main window
+    uiBBoxAnalizer = MainWindow()
+    uiBBoxAnalizer.show()
 
 if __name__ == "__main__":
     import random
