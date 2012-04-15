@@ -33,6 +33,42 @@ class FilterWidget(QtGui.QHBoxLayout):
         self.addWidget(self.type)
         self.addWidget(self.entry)
 
+class TargetFormatWidget(QtGui.QHBoxLayout):
+    _testData = ["PC_Video 640x480",
+            "NTSC 720x486",
+            "PAL 720x576",
+            "HD 1920x1080",
+            "NTSC_16:9 720x486",
+            "PAL_16:9 720x576",
+            "1K_Super_35(full-ap) 1024x778",
+            "1K_Cinemascope 914x778",
+            "2K_Super_35(full-ap) 2048x1556",
+            "2K_Cinemascope 1828x1556",
+            "4K_Super_35(full-ap) 4096x3112",
+            "4K_Cinemascope 3656x3112"]
+
+    def __init__(self, parent = None):
+        QtGui.QHBoxLayout.__init__(self, parent)
+
+        self.list = self._testData
+
+        self.format = QtGui.QComboBox()
+        self.format.addItems(self.list)
+
+        self.addWidget(self.format)
+
+    def getResolutionFromIndex(self, index):
+        width, height = self.list[index].split()[1].split("x")
+        return width, height
+
+    @property
+    def currentNukeFormat(self):
+        """
+        Get current format in Nuke
+        """
+
+        return 0
+
 class InfosCountStatus(QtGui.QWidget):
     def __init__(self, parent = None):
         QtGui.QWidget.__init__(self, parent)
@@ -88,6 +124,10 @@ class MainWindow(QtGui.QDialog):
         self.filterWidget = FilterWidget()
         self.filterGroup.setLayout(self.filterWidget)
 
+        self.targetFormatGroup = QtGui.QGroupBox("Target Format")
+        self.targetFormatWidget = TargetFormatWidget()
+        self.targetFormatGroup.setLayout(self.targetFormatWidget)
+
         self.nodeActionsGroup = QtGui.QGroupBox("Node Actions")
         self.displayOptionsGroup = QtGui.QGroupBox("Display Options")
         self.refreshButton = QtGui.QPushButton("Refresh")
@@ -109,6 +149,7 @@ class MainWindow(QtGui.QDialog):
 
         self.vboxLayout.addLayout(self.hboxTopLayout)
         self.hboxTopLayout.addWidget(self.filterGroup)
+        self.hboxTopLayout.addWidget(self.targetFormatGroup)
         self.vboxLayout.addWidget(self.tableView)
         self.vboxLayout.addLayout(self.hboxBottomLayout)
         self.hboxBottomLayout.addWidget(self.nodeActionsGroup)
@@ -123,9 +164,11 @@ class MainWindow(QtGui.QDialog):
         self.filterWidget.type.currentIndexChanged.connect(self.setFilterColumn)
         self.tableView.proxyModel.layoutChanged.connect(self.setInfosCount)
         self.refreshButton.clicked.connect(self.refreshListOfNodes)
+        self.targetFormatWidget.format.currentIndexChanged.connect(self.setFormat)
 
         # emit table model layoutChanged
         self.tableView.model.layoutChanged.emit()
+        self.targetFormatWidget.format.currentIndexChanged.emit(self.targetFormatWidget.currentNukeFormat)
 
     def refreshListOfNodes(self):
         self.nodeLister.setFromNukeNodes()
@@ -154,6 +197,11 @@ class MainWindow(QtGui.QDialog):
     def setFilter(self, pattern):
         self.tableView.proxyModel.setFilterRegExp(pattern)
 
+    def setFormat(self, index):
+        width, height = self.targetFormatWidget.getResolutionFromIndex(index)
+        self.tableView.model.maxBBoxWidth = width
+        self.tableView.model.maxBBoxHeight = height
+
     def event(self, event):
         return QtGui.QWidget.event(self, event)
 
@@ -177,7 +225,7 @@ class NodesTableModel(QtCore.QAbstractTableModel):
 
     @maxBBoxWidth.setter
     def maxBBoxWidth(self, value):
-        self._maxBBoxWidth = value
+        self._maxBBoxWidth = int(value)
         self.layoutChanged.emit()
 
     @property
@@ -186,7 +234,7 @@ class NodesTableModel(QtCore.QAbstractTableModel):
 
     @maxBBoxHeight.setter
     def maxBBoxHeight(self, value):
-        self._maxBBoxHeight = value
+        self._maxBBoxHeight = int(value)
         self.layoutChanged.emit()
 
     @property
@@ -258,7 +306,7 @@ class NodesTableView(QtGui.QTableView):
         self.setModel(self.proxyModel)
         self.sortByColumn(0, QtCore.Qt.AscendingOrder)
 
-class NodesList():
+class NodesList(object):
     # TODO: self.addNode must be re-think... maybe use a dict
     # TODO: add a remove node
     # TODO: add a nuke.callback to update list on Node in DAG changed,deleted,added,...
