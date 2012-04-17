@@ -34,40 +34,51 @@ class FilterWidget(QtGui.QHBoxLayout):
         self.addWidget(self.entry)
 
 class TargetFormatWidget(QtGui.QHBoxLayout):
-    _testData = ["PC_Video 640x480",
-            "NTSC 720x486",
-            "PAL 720x576",
-            "HD 1920x1080",
-            "NTSC_16:9 720x486",
-            "PAL_16:9 720x576",
-            "1K_Super_35(full-ap) 1024x778",
-            "1K_Cinemascope 914x778",
-            "2K_Super_35(full-ap) 2048x1556",
-            "2K_Cinemascope 1828x1556",
-            "4K_Super_35(full-ap) 4096x3112",
-            "4K_Cinemascope 3656x3112"]
+    _testData = ["640x480 PC_Video",
+            "720x486 NTSC",
+            "720x576 PAL",
+            "1920x1080 HD",
+            "720x486 NTSC_16:9",
+            "720x576 PAL_16:9" ]
 
     def __init__(self, parent = None):
         QtGui.QHBoxLayout.__init__(self, parent)
 
-        self.list = self._testData
+        self.list = self.initFormatList()
 
         self.format = QtGui.QComboBox()
         self.format.addItems(self.list)
+        self.format.setCurrentIndex(self.currentNukeFormatIndex)
 
         self.addWidget(self.format)
 
+    def initFormatList(self):
+        try:
+            listFormat = []
+            for nFormat in nuke.formats():
+                item = "%sx%s %s " % (nFormat.width(), nFormat.height(), nFormat.name())
+                listFormat.append(item)
+
+            return listFormat
+        except:
+            return self._testData
+
     def getResolutionFromIndex(self, index):
-        width, height = self.list[index].split()[1].split("x")
+        width, height = self.list[index].split()[0].split("x")
         return width, height
 
     @property
-    def currentNukeFormat(self):
+    def currentNukeFormatIndex(self):
         """
         Get current format in Nuke
         """
 
-        return 0
+        try:
+            nFormat = nuke.Root().format()
+            currentFormat = "%sx%s %s " % (nFormat.width(), nFormat.height(), nFormat.name())
+            return self.list.index(currentFormat)
+        except:
+            return 0
 
 class InfosCountStatus(QtGui.QWidget):
     def __init__(self, parent = None):
@@ -168,7 +179,7 @@ class MainWindow(QtGui.QDialog):
 
         # emit table model layoutChanged
         self.tableView.model.layoutChanged.emit()
-        self.targetFormatWidget.format.currentIndexChanged.emit(self.targetFormatWidget.currentNukeFormat)
+        self.setFormat()
 
     def refreshListOfNodes(self):
         self.nodeLister.setFromNukeNodes()
@@ -197,8 +208,8 @@ class MainWindow(QtGui.QDialog):
     def setFilter(self, pattern):
         self.tableView.proxyModel.setFilterRegExp(pattern)
 
-    def setFormat(self, index):
-        width, height = self.targetFormatWidget.getResolutionFromIndex(index)
+    def setFormat(self):
+        width, height = self.targetFormatWidget.getResolutionFromIndex(self.targetFormatWidget.format.currentIndex())
         self.tableView.model.maxBBoxWidth = width
         self.tableView.model.maxBBoxHeight = height
 
