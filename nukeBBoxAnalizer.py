@@ -12,6 +12,7 @@ import operator
 from PySide import QtCore, QtGui
 try:
     import nuke
+    import nukescripts
 except:
     pass
 
@@ -21,6 +22,17 @@ __email__ = "matthieu.cadet@gmail.com"
 __copyright__ = "Copyright 2012"
 __license__ = "?"
 __version__ = "1.0"
+
+def centerNodeInNodeGraph(node):
+    try:
+        xpos = node["xpos"].value()
+        ypos = node["ypos"].value()
+        factor = 1.0
+        nukescripts.clear_selection_recursive()
+        node["selected"].setValue(True)
+        nuke.zoom(factor, (xpos, ypos))
+    except:
+        pass
 
 class FilterWidget(QtGui.QHBoxLayout):
     def __init__(self, parent = None):
@@ -316,6 +328,16 @@ class NodesTableView(QtGui.QTableView):
 
         self.setModel(self.proxyModel)
         self.sortByColumn(0, QtCore.Qt.AscendingOrder)
+        self.doubleClicked.connect(self.focusNukeNode)
+
+    def focusNukeNode(self, data):
+        try:
+            nodename = data.child(data.row(), 0).data()
+            node = nuke.toNode(nodename)
+
+            centerNodeInNodeGraph(node)
+        except:
+            pass
 
 class NodesList(object):
     # TODO: self.addNode must be re-think... maybe use a dict
